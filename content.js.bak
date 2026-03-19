@@ -1,0 +1,182 @@
+// content.js - FlipRadar Marketplace DOM scanner
+// No innerHTML, no eval, no script injection. Pure DOM reads.
+
+(function () {
+  'use strict';
+
+  // ── Helpers ───────────────────────────────────────────
+
+  // Extract FB item id from a marketplace URL, else hash the href
+  function stableId(href) {
+    var m = href.match(/\/marketplace\/item\/(\d+)/);
+    if (m) return 'fb-' + m[1];
+    // fallback: simple string hash
+    var h = 0;
+    for (var i = 0; i < href.length; i++) {
+      h = ((h << 5) - h) + href.charCodeAt(i);
+      h |= 0;
+    }
+    return 'hash-' + Math.abs(h);
+  }
+
+  // Try to parse a price string like "$320", "CA$1,200", "Free", "$45.00"
+  function parsePrice(text) {
+    if (!text) return null;
+    var cleaned = text.replace(/[^0-9.]/g, '');
+    if (!cleaned) return null;
+    var num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  }
+
+  // Get visible text content of an element (first non-empty text)
+  function visibleText(el) {
+    if (!el) return '';
+    return (el.textContent || '').trim();
+  }
+
+  // ── Main scan ─────────────────────────────────────────
+
+  function scanListings() {
+    var results = [];
+    var seen = {};
+
+    // Strategy 1: Find all anchor tags linking to /marketplace/item/
+    var allAnchors = document.querySelectorAll('a[href*="/marketplace/item/"]');
+
+    allAnchors.forEach(function (anchor) {
+      var href = anchor.href || anchor.getAttribute('href') || '';
+      if (!href) return;
+
+      // Normalize URL
+      var fullUrl;
+      try {
+        fullUrl = new URL(href, location.origin).toString();
+      } catch (e) {
+        return;
+      }
+
+      var id = stableId(fullUrl);
+      if (seen[id]) return;
+      seen[id] = true;
+
+      // Walk up to find the card container (typically 2-4 levels up)
+      // FB wraps listings in divs; we look for the nearest ancestor that
+      // contains both a price-like string and title text.
+      var card = anchor;
+      for (var i = 0; i < 6; i++) {
+        if (card.parentElement) card = card.parentElement;
+        else break;
+      }
+
+      // Extract text nodes from the card area
+      var cardText = visibleText(card);
+
+      // --- Title ---
+      // The anchor itself or its first significant text child is usually the title.
+      // Also check aria-label on the anchor or nearby img alt.
+      var title = '';
+
+      // Try aria-label first (FB often puts full title here)
+      if (anchor.getAttribute('aria-label')) {
+        title = anchor.getAttribute('aria-label').trim();
+      }
+
+      // Try the anchor's own text
+      if (!title) {
+        title = visibleText(anchor);
+      }
+
+      // Try img alt within the anchor
+      if (!title) {
+        var img = anchor.querySelector('img[alt]');
+        if (img) title = img.getAttribute('alt').trim();
+      }
+
+      // Fallback: grab the longest text span inside the card that isn't a price
+      if (!title || title.length < 3) {
+        var spans = card.querySelectorAll('span');
+        var best = '';
+        spans.forEach(function (sp) {
+          var t = visibleText(sp);
+          // Skip things that look like prices
+          if (t && !t.match(/^\$|^CA\$|^Free$/i) && t.length > best.length && t.length < 200) {
+            best = t;
+          }
+        });
+        if (best) title = best;
+      }
+
+      // --- Price ---
+      var price = null;
+
+      // Look for spans inside the card that contain $ or "Free"
+      var priceSpans = card.querySelectorAll('span');
+      priceSpans.forEach(function (sp) {
+        if (price !== null) return; // take first match
+        var t = visibleText(sp);
+        if (t.match(/^\$[\d,]+/) || t.match(/^CA\$[\d,]+/) || t.match(/^Free$/i)) {
+          price = t.toLowerCase() === 'free' ? 0 : parsePrice(t);
+        }
+      });
+
+      // Only include if we got at least a title or a URL
+      if (title || fullUrl) {
+        results.push({
+          id: id,
+          title: title || '(no title)',
+          price: price,
+          url: fullUrl
+        });
+      }
+    });
+
+    // Strategy 2: If Strategy 1 found nothing, try broader approach
+    // Look for any link whose text or parent contains a $ amount
+    if (results.length === 0) {
+      var allLinks = document.querySelectorAll('a[href*="facebook.com/marketplace"]');
+      allLinks.forEach(function (a) {
+        var href = a.href || '';
+        if (!href || href.indexOf('/item/') === -1) return;
+
+        var fullUrl;
+        try {
+          fullUrl = new URL(href, location.origin).toString();
+        } catch (e) {
+          return;
+        }
+
+        var id = stableId(fullUrl);
+        if (seen[id]) return;
+        seen[id] = true;
+
+        results.push({
+          id: id,
+          title: visibleText(a) || '(no title)',
+          price: null,
+          url: fullUrl
+        });
+      });
+    }
+
+    return results;
+  }
+
+  // ── Message listener ──────────────────────────────────
+
+  chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+    if (msg && msg.cmd === 'scan_listings') {
+      try {
+        var listings = scanListings();
+        console.log('[FlipRadar][cs] scanned ' + listings.length + ' listings');
+        sendResponse({ ok: true, listings: listings });
+      } catch (e) {
+        console.error('[FlipRadar][cs] scan error', e);
+        sendResponse({ ok: false, error: String(e), listings: [] });
+      }
+    }
+    // Must return true for async, but our response is sync here
+    return false;
+  });
+
+  console.log('[FlipRadar][cs] content script loaded on', location.href);
+})();

@@ -1,0 +1,87 @@
+(function () {
+  // Elements
+  var nCheck = document.getElementById("notifEnabled");
+  var sList = document.getElementById("searchesList");
+  var uIn = document.getElementById("newUrl");
+  var kIn = document.getElementById("newKeywords");
+  var pIn = document.getElementById("newMaxPrice");
+  var addBtn = document.getElementById("addSearch");
+  var status = document.getElementById("status");
+  var tgTokenEl = document.getElementById("tgToken");
+  var tgChatEl = document.getElementById("tgChat");
+
+  function load() {
+    chrome.storage.local.get(["searches", "settings"], function (res) {
+      // Searches
+      var ss = res.searches || [];
+      renderSearches(ss);
+
+      // Notifications toggle
+      var set = res.settings || { notificationsEnabled: true };
+      if (nCheck) nCheck.checked = (set.notificationsEnabled !== false);
+      if (tgTokenEl) tgTokenEl.value = set.telegramBotToken || '';
+      if (tgChatEl) tgChatEl.value = set.telegramChatId || '';
+    });
+  }
+
+  function renderSearches(arr) {
+    if (!sList) return;
+    while (sList.firstChild) sList.removeChild(sList.firstChild);
+    if (!arr || arr.length === 0) {
+      var d = document.createElement("div"); d.textContent = "No searches configured.";
+      sList.appendChild(d);
+      return;
+    }
+    arr.forEach(function (s, i) {
+      var row = document.createElement("div"); row.style.marginBottom = "8px";
+      var txt = document.createElement("span"); txt.textContent = s.url + (s.keywords ? " ["+s.keywords+"]" : "");
+      var del = document.createElement("button"); del.textContent = "Del"; del.style.marginLeft = "8px";
+      del.onclick = function () {
+        arr.splice(i, 1);
+        chrome.storage.local.set({ searches: arr }, load);
+      };
+      row.appendChild(txt); row.appendChild(del); sList.appendChild(row);
+    });
+  }
+
+  function addS() {
+    var u = uIn.value.trim();
+    if (!u) return alert("URL required");
+    if (!u.startsWith("https://")) return alert("HTTPS required");
+    var k = kIn ? kIn.value.trim() : null;
+    var p = pIn ? parseFloat(pIn.value) : null;
+    chrome.storage.local.get(["searches"], function (c) {
+      var arr = c.searches || [];
+      arr.push({ url: u, keywords: k, maxPrice: p, enabled: true });
+      chrome.storage.local.set({ searches: arr }, function () {
+        uIn.value = ""; if(kIn) kIn.value=""; if(pIn) pIn.value=""; load();
+      });
+    });
+  }
+
+  if (addBtn) addBtn.onclick = addS;
+
+  if (nCheck) {
+    nCheck.onchange = function () {
+      chrome.storage.local.get(["settings"], function (c) {
+        var s = c.settings || {};
+        s.notificationsEnabled = nCheck.checked;
+        chrome.storage.local.set({ settings: s });
+      });
+    };
+  }
+
+  // Save Telegram settings on blur
+  function saveTg() {
+    chrome.storage.local.get(['settings'], function (c) {
+      var s = c.settings || {};
+      if (tgTokenEl) s.telegramBotToken = tgTokenEl.value.trim();
+      if (tgChatEl) s.telegramChatId = tgChatEl.value.trim();
+      chrome.storage.local.set({ settings: s });
+    });
+  }
+  if (tgTokenEl) tgTokenEl.addEventListener('change', saveTg);
+  if (tgChatEl) tgChatEl.addEventListener('change', saveTg);
+
+  load();
+})();

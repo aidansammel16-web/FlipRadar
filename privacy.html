@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>FlipRadar — Privacy Policy</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; color: #1a1a1a; }
+    h1 { font-size: 1.4rem; }
+    h2 { font-size: 1.1rem; margin-top: 1.5rem; }
+  </style>
+</head>
+<body>
+  <h1>FlipRadar Privacy Policy</h1>
+
+  <h2>Data Collection</h2>
+  <p>FlipRadar operates entirely on your local device. It stores:</p>
+  <ul>
+    <li>Marketplace search URLs you configure.</li>
+    <li>IDs of listings already seen, to prevent duplicate alerts.</li>
+    <li>A short history of recent alerts (up to 50) for display in the popup.</li>
+    <li>Your scanner settings (check interval, minimum score).</li>
+  </ul>
+
+  <h2>External Communication</h2>
+  <p>The extension loads Facebook Marketplace pages in browser tabs to read listing data from your configured searches. <strong>No data is transmitted to any third-party server, analytics service, or the extension developer.</strong></p>
+
+  <h2>Storage</h2>
+  <p>All data is stored locally via <code>chrome.storage.local</code>. Uninstalling the extension removes all stored data.</p>
+
+  <h2>Permissions</h2>
+  <ul>
+    <li><strong>storage</strong> — persist searches, settings, and seen-item IDs.</li>
+    <li><strong>notifications</strong> — show desktop alerts for qualifying deals.</li>
+    <li><strong>alarms</strong> — schedule periodic scans.</li>
+    <li><strong>tabs</strong> — open and manage Marketplace tabs for scanning.</li>
+    <li><strong>scripting</strong> — inject the content script to extract listing data.</li>
+    <li><strong>host_permissions (facebook.com)</strong> — required to read Marketplace pages.</li>
+  </ul>
+
+  <p><em>Last updated: February 2026</em></p>
+</body>
+</html>

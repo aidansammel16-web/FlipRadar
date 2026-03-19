@@ -1,0 +1,441 @@
+console.log('[FlipRadar][sw] build_id=2026-02-28T10:08Z');
+console.log('[FlipRadar][sw] boot');
+
+// ─────────────────────────────────────────────────────────
+// FlipRadar v0.1 — Service Worker (Manifest MV3)
+// Production-safe, autonomous tab-based ingestion engine
+// ─────────────────────────────────────────────────────────
+
+function safeStringify(x) {
+  try { return JSON.stringify(x); } catch (e) { return String(x); }
+}
+
+// ── Brand & condition configuration ─────────────────────
+var BRANDS = [
+  'iphone','ipad','macbook','playstation','ps5','ps4','xbox',
+  'nintendo switch','samsung galaxy','airpods','sony','herman miller',
+  'steelcase','west elm','cb2','restoration hardware','pottery barn','ikea'
+];
+var CONDITION_WORDS = ['mint','sealed','like new','brand new','bnib','unused','nib'];
+
+// Electronics signals & negatives (for refined scoring)
+var ELECTRONICS_SIGNALS = ['m1','m2','m3','16gb','512gb','1tb','ssd','nvidia','amd','intel'];
+var NEGATIVE_SIGNALS = ['broken','for parts','cracked','read description','non-working'];
+
+// ── Helpers ─────────────────────────────────────────────
+function hashCode(s) {
+  var h = 0;
+  for (var i = 0; i < s.length; i++) {
+    h = ((h << 5) - h) + s.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+}
+
+function scoreListing(listing, search) {
+  var pts = 0;
+  var price = Number(listing.price);
+  var max = Number(search.maxPrice);
+  if (max > 0 && price > 0) {
+    if (price <= max * 0.50) pts += 3;
+    else if (price <= max * 0.75) pts += 2;
+    else if (price <= max) pts += 1;
+  }
+  var titleLower = (listing.title || '').toLowerCase();
+  if (BRANDS.some(function (b) { return titleLower.includes(b); })) pts += 2;
+  if (CONDITION_WORDS.some(function (c) { return titleLower.includes(c); })) pts += 1;
+  // Electronics signals boost
+  if (ELECTRONICS_SIGNALS.some(function (sig) { return titleLower.includes(sig); })) pts += 1;
+  // Negative signals reduce score
+  if (NEGATIVE_SIGNALS.some(function (neg) { return titleLower.includes(neg); })) pts -= 3;
+  return pts;
+}
+
+// ── Default seed search ─────────────────────────────────
+var DEFAULT_SEARCH = {
+  url: 'https://www.facebook.com/marketplace/vancouver/search?query=macbook+pro',
+  keywords: 'macbook pro',
+  location: 'Vancouver',
+  maxPrice: 800,
+  enabled: true
+};
+
+async function ensureDefaults() {
+  var data = await chrome.storage.local.get({ searches: [] });
+  if (data.searches.length === 0) {
+    await chrome.storage.local.set({ searches: [DEFAULT_SEARCH] });
+    console.log('[FlipRadar][sw] seeded_default');
+  }
+}
+
+// ── Core Engine: Autonomous Tab-Based Ingestion ─────────
+
+// MAX_ALERTS_PER_TICK constant
+const MAX_ALERTS_PER_TICK = 3;
+
+async function handleTick() {
+  console.log('[FlipRadar][sw] tick_started');
+
+  // 1. Load State
+  var data = await chrome.storage.local.get({
+    searches: [],
+    seenIds: [],
+    alertHistory: [],
+    settings: { minScore: 2, checkIntervalMin: 5 },
+    tabMap: {}
+  });
+
+  var searches = data.searches || [];
+  var seenIdsArr = data.seenIds || [];
+  var alertHistory = data.alertHistory || [];
+  var settings = data.settings || { minScore: 2, checkIntervalMin: 5 };
+  var tabMap = data.tabMap || {};
+
+  var minScore = Number(settings.minScore) || 2;
+  var checkMin = Number(settings.checkIntervalMin) || 5;
+
+  // Convert seenIds to Set for O(1) lookups
+  var seen = new Set(seenIdsArr);
+
+  // Filter enabled searches
+  var enabledSearches = searches.filter(function (s) { return s.enabled !== false; });
+  if (enabledSearches.length === 0) {
+    console.log('[FlipRadar][sw] tick_complete new_alerts=0 (no enabled searches)');
+    return { ok: true, newAlerts: 0 };
+  }
+
+  var totalNewAlerts = 0;
+
+  // 2. Process each enabled search
+  for (var si = 0; si < enabledSearches.length; si++) {
+    var search = enabledSearches[si];
+    if (!search.url) continue;
+
+    // Stop if alert cap reached
+    if (totalNewAlerts >= MAX_ALERTS_PER_TICK) {
+      console.log(`[FlipRadar][sw] alert cap (${MAX_ALERTS_PER_TICK}) reached, stopping tick.`);
+      break;
+    }
+
+    var scanTabId = null;
+    try {
+      // ── A. Tab Management: find or create ──
+      // Create a fresh scan tab (stateless — always closed at end)
+      var tab = await chrome.tabs.create({ url: search.url, active: false });
+      var tabId = tab.id;
+      scanTabId = tabId;
+
+      // ── B. Wait for tab load complete (30s timeout) ──
+      await new Promise(function (resolve, reject) {
+        var timeout = setTimeout(function () {
+          chrome.tabs.onUpdated.removeListener(listener);
+          reject(new Error('timeout_waiting_for_load'));
+        }, 30000);
+
+        function listener(tid, changeInfo) {
+          if (tid === tabId && changeInfo.status === 'complete') {
+            clearTimeout(timeout);
+            chrome.tabs.onUpdated.removeListener(listener);
+            resolve();
+          }
+        }
+        chrome.tabs.onUpdated.addListener(listener);
+      });
+
+      // ── C. SPA render delay (FB Marketplace is React SPA) ──
+      await new Promise(function (r) { setTimeout(r, 3000); });
+
+
+      // ── C2. Auto-scroll to trigger lazy-loaded listing cards ──
+      await chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        func: function () { window.scrollTo(0, document.body.scrollHeight); }
+      });
+      await new Promise(function (r) { setTimeout(r, 2000); });
+      // Second scroll pass for additional lazy-loaded cards
+      await chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        func: function () { window.scrollTo(0, document.body.scrollHeight); }
+      });
+      await new Promise(function (r) { setTimeout(r, 1000); });
+
+      // ── C3. Wait for listing anchors to appear (up to 5s) ──
+      for (var _waitI = 0; _waitI < 10; _waitI++) {
+        var _probeResult = await chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          func: function () { return document.querySelectorAll('a[href*="/marketplace/item/"]').length; }
+        });
+        var _anchorCount = (_probeResult && _probeResult[0] && _probeResult[0].result) || 0;
+        console.log('[FlipRadar][sw] anchor_wait pass=' + (_waitI + 1) + ' anchors=' + _anchorCount);
+        if (_anchorCount > 0) break;
+        await new Promise(function (r) { setTimeout(r, 500); });
+      }
+
+      // ── D. Send scan command to content script ──
+      var response = null;
+      try {
+        response = await chrome.tabs.sendMessage(tabId, { cmd: 'scan_listings' });
+      } catch (sendErr) {
+        // Content script not present — inject via chrome.scripting (MV3)
+        console.log('[FlipRadar][sw] injecting content.js into tab ' + tabId);
+        await chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          files: ['content.js']
+        });
+        // Brief pause for script to initialize
+        await new Promise(function (r) { setTimeout(r, 500); });
+        response = await chrome.tabs.sendMessage(tabId, { cmd: 'scan_listings' });
+      }
+
+      // DEBUG: log scan outcome every tick/search
+      console.log('[FlipRadar][sw] scan_ok=' + (!!response && response.ok) + ' listings_len=' + ((response && response.listings && response.listings.length) || 0));
+
+      // DOM probe if listings empty
+      if (!response || !response.listings || response.listings.length === 0) {
+        try {
+          var _domProbe = await chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            func: function () {
+              var anchors = document.querySelectorAll('a[href*="/marketplace/item/"]');
+              var hrefs = [];
+              for (var i = 0; i < Math.min(anchors.length, 5); i++) {
+                hrefs.push(anchors[i].getAttribute('href'));
+              }
+              return {
+                href: location.href,
+                readyState: document.readyState,
+                anchorCount: anchors.length,
+                sampleHrefs: hrefs
+              };
+            }
+          });
+          var _probeData = (_domProbe && _domProbe[0] && _domProbe[0].result) || {};
+          console.log('[FlipRadar][sw] dom_probe href=' + _probeData.href + ' readyState=' + _probeData.readyState + ' anchors=' + _probeData.anchorCount + ' samples=' + JSON.stringify(_probeData.sampleHrefs));
+        } catch (_probeErr) {
+          console.warn('[FlipRadar][sw] dom_probe_failed', _probeErr);
+        }
+      }
+
+      // Guard: validate response
+      if (!response || !response.ok || !response.listings) {
+        throw new Error('scan_failed_or_empty');
+      }
+
+      var listings = response.listings || [];
+      var total = listings.length;
+      var qualifiedCount = 0;
+      var unseenQualifiedCount = 0;
+
+      // ── E. Score + Dedupe + Notify + History ──
+      var newForThisSearch = 0;
+
+      for (var li = 0; li < listings.length; li++) {
+        if (totalNewAlerts >= MAX_ALERTS_PER_TICK) {
+          console.log('[FlipRadar][sw] alert cap (' + MAX_ALERTS_PER_TICK + ') reached during search "' + (search.keywords || search.url) + '"');
+          break;
+        }
+
+        var item = listings[li];
+        if (!item || !item.id) continue;
+
+        var score = scoreListing(item, search);
+        if (score >= minScore) qualifiedCount++;
+        console.log('[FlipRadar][sw] listing "' + (item.title || '(no title)') + '" score=' + score + ' (need >=' + minScore + ')');
+
+        if (score < minScore) continue;
+        if (seen.has(item.id)) continue;
+
+        unseenQualifiedCount++;
+
+        // New qualifying alert
+        seen.add(item.id);
+        newForThisSearch++;
+        totalNewAlerts++;
+
+        // Persist URL for click resolution (MV3-safe)
+        try {
+          if (item.id && item.url) {
+            const key = 'url_' + item.id;
+            chrome.storage.local.set({ [key]: item.url });
+          }
+        } catch (e) {
+          console.warn('[FlipRadar][sw] url_persist_error', e);
+        }
+
+        // Chrome notification (guarded)
+        if (chrome.notifications && chrome.notifications.create) {
+          chrome.notifications.create(item.id, {
+            type: 'basic',
+            iconUrl: 'icons/icon48.png',
+            title: '$' + (item.price != null ? item.price : '?') + ' \u2014 ' + (item.title || ''),
+            message: 'Score ' + score + ' | ' + (item.url || '')
+          });
+        }
+
+        // Append to alert history
+        alertHistory.push({
+          id: item.id,
+          title: item.title,
+          price: item.price,
+          url: item.url,
+          score: score,
+          ts: new Date().toISOString(),
+          searchUrl: search.url
+        });
+      }
+
+      console.log('[FlipRadar][sw] scan_summary total=' + total + ' qualified=' + qualifiedCount + ' unseenQualified=' + unseenQualifiedCount + ' new=' + newForThisSearch);
+      console.log('[FlipRadar][sw] search "' + (search.keywords || search.url) + '" result: ' + newForThisSearch + ' new alerts');
+
+    } catch (err) {
+      console.warn('[FlipRadar][sw] error_processing_search "' + (search.keywords || search.url) + '": ' + (err && err.message ? err.message : err));
+      // Continue to next search — never crash the tick loop
+    } finally {
+      // Always close the scan tab
+      if (scanTabId) {
+        try {
+          await chrome.tabs.remove(scanTabId);
+          console.log('[FlipRadar][sw] closing_scan_tab tabId=' + scanTabId + ' reason=tick_done');
+        } catch (_closeErr) {
+          console.warn('[FlipRadar][sw] closing_scan_tab tabId=' + scanTabId + ' reason=close_failed err=' + _closeErr);
+        }
+        scanTabId = null;
+      }
+    }
+  }
+
+  // 3. Serialize Set back to array, cap at 5000
+  var seenArr = Array.from(seen);
+  if (seenArr.length > 5000) seenArr = seenArr.slice(-5000);
+
+  // Cap alert history at 50
+  if (alertHistory.length > 50) alertHistory = alertHistory.slice(-50);
+
+  // Persist
+  await chrome.storage.local.set({
+    seenIds: seenArr,
+    alertHistory: alertHistory,
+    tabMap: tabMap
+  });
+
+  console.log('[FlipRadar][sw] tick_complete new_alerts=' + totalNewAlerts);
+
+  // 4. Reschedule alarm to match current checkIntervalMin
+  try {
+    await chrome.alarms.clear('flipradar-check');
+    chrome.alarms.create('flipradar-check', { periodInMinutes: checkMin });
+  } catch (e) {
+    console.warn('[FlipRadar][sw] warning: failed to reschedule alarm', e);
+  }
+
+  return { ok: true, newAlerts: totalNewAlerts };
+}
+
+// ── Message Listener ────────────────────────────────────
+chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  (async function () {
+    try {
+      if (msg && msg.cmd === 'tick') {
+        console.log('[FlipRadar][sw] tick_requested');
+        var result = await handleTick();
+        sendResponse(result);
+        return;
+      }
+      if (msg && msg.cmd === 'clearSeen') {
+        await chrome.storage.local.set({ seenIds: [] });
+        console.log('[FlipRadar][sw] seen_cleared');
+        sendResponse({ ok: true });
+        return;
+      }
+      sendResponse({ ok: false, error: 'unknown_cmd' });
+    } catch (e) {
+      console.error('[FlipRadar][sw] msg_error', e && e.stack ? e.stack : e);
+      sendResponse({ ok: false, error: String(e) });
+    }
+  })();
+  return true;
+});
+
+// ── Alarm listener ──────────────────────────────────────
+try {
+  chrome.alarms.onAlarm.addListener(function (alarm) {
+    if (alarm.name === 'flipradar-check') handleTick();
+  });
+} catch (e) {
+  console.error('[FlipRadar][sw] alarm_listener_error', e);
+}
+
+// ── Notification click handler ──────────────────────────
+try {
+  if (chrome.notifications && chrome.notifications.onClicked) {
+    chrome.notifications.onClicked.addListener(function (notifId) {
+      console.log('[FlipRadar][sw] notification_clicked notifId=' + notifId);
+      (async function () {
+        var url = null;
+
+        // 1) Try urlMap (in-memory or storage)
+        try {
+          var stored = await chrome.storage.local.get({ urlMap: {} });
+          var uMap = stored.urlMap || {};
+          if (uMap[notifId]) {
+            url = uMap[notifId];
+            console.log('[FlipRadar][sw] click_resolved via urlMap url=' + url);
+          }
+        } catch (e) {
+          console.warn('[FlipRadar][sw] click urlMap lookup failed', e);
+        }
+
+        // 2) Fallback: search alertHistory for matching id
+        if (!url) {
+          try {
+            var histData = await chrome.storage.local.get({ alertHistory: [] });
+            var history = histData.alertHistory || [];
+            for (var i = history.length - 1; i >= 0; i--) {
+              if (history[i] && String(history[i].id) === String(notifId) && history[i].url) {
+                url = history[i].url;
+                console.log('[FlipRadar][sw] click_resolved via alertHistory url=' + url);
+                break;
+              }
+            }
+          } catch (e) {
+            console.warn('[FlipRadar][sw] click alertHistory lookup failed', e);
+          }
+        }
+
+        // 3) Fallback: if notifId is all digits, build FB marketplace URL
+        if (!url && /^\d+$/.test(notifId)) {
+          url = 'https://www.facebook.com/marketplace/item/' + notifId + '/';
+          console.log('[FlipRadar][sw] click_resolved via id-fallback url=' + url);
+        }
+
+        // 4) Open or warn
+        if (url) {
+          console.log('[FlipRadar][sw] opening url=' + url);
+          chrome.tabs.create({ url: url, active: true });
+        } else {
+          console.warn('[FlipRadar][sw] click_no_url_found notifId=' + notifId);
+        }
+      })();
+    });
+  }
+} catch (e) {
+  console.error('[FlipRadar][sw] notif_listener_error', e);
+}
+
+// ── Boot ────────────────────────────────────────────────
+ensureDefaults()
+  .then(function () {
+    // Ensure alarm exists and is configured with the current settings' interval
+    chrome.alarms.get('flipradar-check', function (existing) {
+      // If no alarm or interval changed, create/recreate it
+      const currentInterval = 5;
+      if (!existing || existing.periodInMinutes !== currentInterval) {
+        chrome.alarms.create('flipradar-check', { periodInMinutes: currentInterval });
+        console.log('[FlipRadar][sw] initial alarm created/updated to ' + currentInterval + ' min');
+      }
+    });
+    console.log('[FlipRadar][sw] ready');
+  })
+  .catch(function (e) {
+    console.error('[FlipRadar][sw] boot_error', e);
+  });

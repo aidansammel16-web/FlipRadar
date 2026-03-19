@@ -1,0 +1,222 @@
+        // New qualifying alert
+        seen.add(item.id);
+        newForThisSearch++;
+        totalNewAlerts++;
+
+        // Chrome notification (guarded)
+        if (chrome.notifications && chrome.notifications.create) {
+          chrome.notifications.create(item.id, {
+            type: 'basic',
+            iconUrl: 'icons/icon48.png',
+            title: '
+
+    } catch (err) {
+      console.warn('[FlipRadar][sw] error_processing_search "' + (search.keywords || search.url) + '": ' + (err && err.message ? err.message : err));
+      // Continue to next search — never crash the tick loop
+    }
+  }
+
+  // 3. Serialize Set back to array, cap at 5000
+  var seenArr = Array.from(seen);
+  if (seenArr.length > 5000) seenArr = seenArr.slice(-5000);
+
+  // Cap alert history at 50
+  if (alertHistory.length > 50) alertHistory = alertHistory.slice(-50);
+
+  // Persist
+  await chrome.storage.local.set({
+    seenIds: seenArr,
+    alertHistory: alertHistory,
+    tabMap: tabMap
+  });
+
+  console.log('[FlipRadar][sw] tick_complete new_alerts=' + totalNewAlerts);
+
+  // 4. Reschedule alarm to match current checkIntervalMin
+  try {
+    await chrome.alarms.clear('flipradar-check');
+    chrome.alarms.create('flipradar-check', { periodInMinutes: checkMin });
+  } catch (e) {
+    console.warn('[FlipRadar][sw] warning: failed to reschedule alarm', e);
+  }
+
+  return { ok: true, newAlerts: totalNewAlerts };
+}
+
+// ── Message Listener ────────────────────────────────────
+chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  (async function () {
+    try {
+      if (msg && msg.cmd === 'tick') {
+        console.log('[FlipRadar][sw] tick_requested');
+        var result = await handleTick();
+        sendResponse(result);
+        return;
+      }
+      if (msg && msg.cmd === 'clearSeen') {
+        await chrome.storage.local.set({ seenIds: [] });
+        console.log('[FlipRadar][sw] seen_cleared');
+        sendResponse({ ok: true });
+        return;
+      }
+      sendResponse({ ok: false, error: 'unknown_cmd' });
+    } catch (e) {
+      console.error('[FlipRadar][sw] msg_error', e && e.stack ? e.stack : e);
+      sendResponse({ ok: false, error: String(e) });
+    }
+  })();
+  return true;
+});
+
+// ── Alarm listener ──────────────────────────────────────
+try {
+  chrome.alarms.onAlarm.addListener(function (alarm) {
+    if (alarm.name === 'flipradar-check') handleTick();
+  });
+} catch (e) {
+  console.error('[FlipRadar][sw] alarm_listener_error', e);
+}
+
+// ── Notification click handler ──────────────────────────
+try {
+  if (chrome.notifications && chrome.notifications.onClicked) {
+    chrome.notifications.onClicked.addListener(function (notifId) {
+      console.log('[FlipRadar][sw] notification_clicked: ' + notifId);
+    });
+  }
+} catch (e) {
+  console.error('[FlipRadar][sw] notif_listener_error', e);
+}
+
+// ── Boot ────────────────────────────────────────────────
+ensureDefaults()
+  .then(function () {
+    // Ensure alarm exists and is configured with the current settings' interval
+    chrome.alarms.get('flipradar-check', function (existing) {
+      // If no alarm or interval changed, create/recreate it
+      const currentInterval = 5;
+      if (!existing || existing.periodInMinutes !== currentInterval) {
+        chrome.alarms.create('flipradar-check', { periodInMinutes: currentInterval });
+        console.log('[FlipRadar][sw] initial alarm created/updated to ' + currentInterval + ' min');
+      }
+    });
+    console.log('[FlipRadar][sw] ready');
+  })
+  .catch(function (e) {
+    console.error('[FlipRadar][sw] boot_error', e);
+  });
+ + (item.price != null ? item.price : '?') + ' \u2014 ' + (item.title || ''),
+            message: 'Score ' + score + ' | ' + (item.url || '')
+          });
+        }
+
+        // Append to alert history
+        alertHistory.push({
+          id: item.id,
+          title: item.title,
+          price: item.price,
+          url: item.url,
+          score: score,
+          ts: new Date().toISOString(),
+          searchUrl: search.url
+        });
+      }
+
+      console.log('[FlipRadar][sw] scan_summary total=' + total + ' qualified=' + qualifiedCount + ' unseenQualified=' + unseenQualifiedCount + ' new=' + newForThisSearch);
+      console.log('[FlipRadar][sw] search "' + (search.keywords || search.url) + '" result: ' + newForThisSearch + ' new alerts');
+
+    } catch (err) {
+      console.warn('[FlipRadar][sw] error_processing_search "' + (search.keywords || search.url) + '": ' + (err && err.message ? err.message : err));
+      // Continue to next search — never crash the tick loop
+    }
+  }
+
+  // 3. Serialize Set back to array, cap at 5000
+  var seenArr = Array.from(seen);
+  if (seenArr.length > 5000) seenArr = seenArr.slice(-5000);
+
+  // Cap alert history at 50
+  if (alertHistory.length > 50) alertHistory = alertHistory.slice(-50);
+
+  // Persist
+  await chrome.storage.local.set({
+    seenIds: seenArr,
+    alertHistory: alertHistory,
+    tabMap: tabMap
+  });
+
+  console.log('[FlipRadar][sw] tick_complete new_alerts=' + totalNewAlerts);
+
+  // 4. Reschedule alarm to match current checkIntervalMin
+  try {
+    await chrome.alarms.clear('flipradar-check');
+    chrome.alarms.create('flipradar-check', { periodInMinutes: checkMin });
+  } catch (e) {
+    console.warn('[FlipRadar][sw] warning: failed to reschedule alarm', e);
+  }
+
+  return { ok: true, newAlerts: totalNewAlerts };
+}
+
+// ── Message Listener ────────────────────────────────────
+chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  (async function () {
+    try {
+      if (msg && msg.cmd === 'tick') {
+        console.log('[FlipRadar][sw] tick_requested');
+        var result = await handleTick();
+        sendResponse(result);
+        return;
+      }
+      if (msg && msg.cmd === 'clearSeen') {
+        await chrome.storage.local.set({ seenIds: [] });
+        console.log('[FlipRadar][sw] seen_cleared');
+        sendResponse({ ok: true });
+        return;
+      }
+      sendResponse({ ok: false, error: 'unknown_cmd' });
+    } catch (e) {
+      console.error('[FlipRadar][sw] msg_error', e && e.stack ? e.stack : e);
+      sendResponse({ ok: false, error: String(e) });
+    }
+  })();
+  return true;
+});
+
+// ── Alarm listener ──────────────────────────────────────
+try {
+  chrome.alarms.onAlarm.addListener(function (alarm) {
+    if (alarm.name === 'flipradar-check') handleTick();
+  });
+} catch (e) {
+  console.error('[FlipRadar][sw] alarm_listener_error', e);
+}
+
+// ── Notification click handler ──────────────────────────
+try {
+  if (chrome.notifications && chrome.notifications.onClicked) {
+    chrome.notifications.onClicked.addListener(function (notifId) {
+      console.log('[FlipRadar][sw] notification_clicked: ' + notifId);
+    });
+  }
+} catch (e) {
+  console.error('[FlipRadar][sw] notif_listener_error', e);
+}
+
+// ── Boot ────────────────────────────────────────────────
+ensureDefaults()
+  .then(function () {
+    // Ensure alarm exists and is configured with the current settings' interval
+    chrome.alarms.get('flipradar-check', function (existing) {
+      // If no alarm or interval changed, create/recreate it
+      const currentInterval = 5;
+      if (!existing || existing.periodInMinutes !== currentInterval) {
+        chrome.alarms.create('flipradar-check', { periodInMinutes: currentInterval });
+        console.log('[FlipRadar][sw] initial alarm created/updated to ' + currentInterval + ' min');
+      }
+    });
+    console.log('[FlipRadar][sw] ready');
+  })
+  .catch(function (e) {
+    console.error('[FlipRadar][sw] boot_error', e);
+  });

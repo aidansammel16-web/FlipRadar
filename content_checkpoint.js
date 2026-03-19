@@ -1,0 +1,161 @@
+// content.js - FlipRadar Marketplace DOM scanner
+// cmd: 'scan_listings' returns stable ids from /marketplace/item/<ID>
+
+(function () {
+  'use strict';
+
+  // Helpers
+  function stableIdFromHref(href) {
+    var m = href && href.match(/\/marketplace\/item\/(\d+)/);
+    if (m) return m[1];
+    // fallback: hash of URL
+    var h = 0;
+    var s = href || '';
+    for (var i = 0; i < s.length; i++) {
+      h = ((h << 5) - h) + s.charCodeAt(i);
+      h |= 0;
+    }
+    return 'hash-' + Math.abs(h);
+  }
+
+  function parsePrice(text) {
+    if (!text) return null;
+    var cleaned = text.replace(/[^0-9.]/g, '');
+    if (!cleaned) return null;
+    var num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  }
+
+  function visibleText(el) {
+    if (!el) return '';
+    return (el.textContent || '').trim();
+  }
+  function parseAgeDaysFromText(t) {
+    if (!t) return null;
+    var s = String(t).trim().toLowerCase();
+
+    if (s.indexOf('just listed') !== -1) return 0;
+    if (s.indexOf('today') !== -1) return 0;
+    if (s.indexOf('yesterday') !== -1) return 1;
+
+    var m = s.match(/(\d+)\s*(minute|hour|day|week|month)s?\s*ago/);
+    if (!m) return null;
+
+    var n = parseInt(m[1], 10);
+    var unit = m[2];
+
+    if (!isFinite(n)) return null;
+
+    if (unit === 'minute' || unit === 'hour') return 0;
+    if (unit === 'day') return n;
+    if (unit === 'week') return n * 7;
+    if (unit === 'month') return n * 30;
+
+    return null;
+  }
+
+  function findAgeTextNearAnchor(a) {
+    if (!a) return '';
+
+    // Look in a reasonable “card” container near the anchor
+    var root = a.closest('div[role="article"], div[role="listitem"], div, article') || a.parentElement || a;
+
+    // Search text snippets in spans/divs near the card
+    var nodes = root.querySelectorAll('span, div');
+    for (var i = 0; i < nodes.length; i++) {
+      var txt = visibleText(nodes[i]);
+      if (!txt) continue;
+
+      var low = txt.toLowerCase();
+      if (low.indexOf('just listed') !== -1) return txt;
+      if (low.indexOf('yesterday') !== -1) return txt;
+      if (low.indexOf('today') !== -1) return txt;
+      if (low.match(/(\d+)\s*(minute|hour|day|week|month)s?\s*ago/)) return txt;
+    }
+
+    return '';
+  }
+  function scanListings() {
+    var results = [];
+    var seen = {};
+
+    // Strategy 1: anchors to /marketplace/item/
+    var anchors = document.querySelectorAll('a[href*="/marketplace/item/"]');
+    anchors.forEach(function (a) {
+      var href = a.getAttribute('href') || '';
+      if (!href) return;
+      // Canonicalize to absolute URL
+      var url;
+      try { url = new URL(href, location.origin).toString(); } catch (e) { return; }
+      var id = stableIdFromHref(url);
+      if (seen[id]) return;
+      seen[id] = true;
+
+      // Title heuristics
+      var title = '';
+      if (a.getAttribute('aria-label')) title = a.getAttribute('aria-label').trim();
+      if (!title) title = visibleText(a);
+      if (!title) {
+        var img = a.querySelector('img[alt]');
+        if (img) title = img.getAttribute('alt').trim();
+      }
+      if (!title) {
+        var span = a.querySelector('span');
+        if (span) title = visibleText(span);
+      }
+      // Price heuristics
+      var price = null;
+      var spans = a.querySelectorAll('span');
+      for (var i = 0; i < spans.length && price == null; i++) {
+        var t = visibleText(spans[i]);
+        if (t.match(/^\$[\d,]+/) || t.match(/^CA\$[\d,]+/) || t.match(/^Free$/i)) {
+          price = t.toLowerCase() === 'free' ? 0 : parsePrice(t);
+        }
+      }
+
+      if (title || url) {
+                var ageText = findAgeTextNearAnchor(a);
+        var ageDays = parseAgeDaysFromText(ageText);
+
+        results.push({
+          id: id,
+          title: title || '(no title)',
+          price: price,
+          url: url,
+          ageText: ageText || '',
+          ageDays: (ageDays == null ? null : ageDays)
+        });
+      }
+    });
+
+    // Fallback: any /marketplace link with item in URL
+    if (results.length === 0) {
+      var allLinks = document.querySelectorAll('a[href*="facebook.com/marketplace"]');
+      allLinks.forEach(function (a) {
+        var href = a.getAttribute('href') || '';
+        if (!href || href.indexOf('/item/') === -1) return;
+        var url;
+        try { url = new URL(href, location.origin).toString(); } catch (e) { return; }
+        var id = stableIdFromHref(url);
+        if (seen[id]) return;
+        seen[id] = true;
+        results.push({ id: id, title: visibleText(a) || '(no title)', price: null, url: url });
+      });
+    }
+
+    return results;
+  }
+
+  // Message listener
+  chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+    if (msg && msg.cmd === 'scan_listings') {
+      try {
+        var listings = scanListings();
+        sendResponse({ ok: true, listings: listings });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e), listings: [] });
+      }
+    }
+    return false;
+  });
+})();
