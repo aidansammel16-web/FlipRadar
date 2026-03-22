@@ -1,8 +1,11 @@
 const SUPABASE_URL = "https://dyznxulsbhkhougueusp.supabase.co";
 const SUPABASE_KEY = "sb_publishable_fHDlcZcYW3UAERRAKqp51w_g-Jt5XrY";
+const REGISTER_USER_URL = "https://dyznxulsbhkhougueusp.supabase.co/functions/v1/register-user";
+const GET_PRO_STATUS_URL = "https://dyznxulsbhkhougueusp.supabase.co/functions/v1/get-pro-status";
+const SUPPORT_EMAIL = "leopoldlunes@gmail.com";
 // popup.js - Strict CSP safe, class-based DOM only
 
-(function() {
+(async function() {
   const container = document.createElement('div');
   container.className = 'container';
   document.body.appendChild(container);
@@ -30,12 +33,12 @@ const SUPABASE_KEY = "sb_publishable_fHDlcZcYW3UAERRAKqp51w_g-Jt5XrY";
 
   // 1. Add Search Form
   const searchFormSection = createEl('div', 'section');
-  
+
   const formTitle = createEl('div', 'h2', 'Add New Search');
   searchFormSection.appendChild(formTitle);
 
   const form = createEl('form');
-  
+
   // URL Input
   const urlGroup = createEl('div', 'form-group');
   urlGroup.appendChild(createEl('label', 'label', 'URL (https:// required)'));
@@ -48,7 +51,7 @@ const SUPABASE_KEY = "sb_publishable_fHDlcZcYW3UAERRAKqp51w_g-Jt5XrY";
 
   // Price & Keywords (Flex Row)
   const pkRow = createEl('div', 'flex gap-s');
-  
+
   // Max Price
   const priceGroup = createEl('div', 'form-group w-full');
   priceGroup.appendChild(createEl('label', 'label', 'Max Price'));
@@ -81,7 +84,7 @@ const SUPABASE_KEY = "sb_publishable_fHDlcZcYW3UAERRAKqp51w_g-Jt5XrY";
 
   // Submit
   const submitBtn = createEl('button', 'btn btn-primary w-full', 'Save Search');
-  submitBtn.type = 'button'; 
+  submitBtn.type = 'button';
   form.appendChild(submitBtn);
 
   searchFormSection.appendChild(form);
@@ -97,9 +100,9 @@ const SUPABASE_KEY = "sb_publishable_fHDlcZcYW3UAERRAKqp51w_g-Jt5XrY";
   // 3. Settings
   const settingsSection = createEl('div', 'section mt-m');
   settingsSection.appendChild(createEl('div', 'h2', 'Settings'));
-  
+
   const setRow = createEl('div', 'flex gap-s align-center');
-  
+
   const minScoreGroup = createEl('div', 'form-group');
   minScoreGroup.appendChild(createEl('label', 'label', 'Min Score'));
   const minScoreInput = createEl('input', 'input-number');
@@ -125,13 +128,13 @@ const SUPABASE_KEY = "sb_publishable_fHDlcZcYW3UAERRAKqp51w_g-Jt5XrY";
   // 4. Actions
   const actionsSection = createEl('div', 'section mt-m');
   actionsSection.appendChild(createEl('div', 'h2', 'Actions'));
-  
+
   const actRow = createEl('div', 'flex gap-s flex-wrap');
-  
+
   const testTickBtn = createEl('button', 'btn', 'Run Test Tick');
   const resetSeenBtn = createEl('button', 'btn', 'Reset Seen');
   const resetBaseBtn = createEl('button', 'btn', 'Reset Baselines');
-  
+
   const testModeLabel = createEl('label', 'row-check');
   const testModeInput = createEl('input', 'input-check');
   testModeInput.type = 'checkbox';
@@ -142,7 +145,7 @@ const SUPABASE_KEY = "sb_publishable_fHDlcZcYW3UAERRAKqp51w_g-Jt5XrY";
   actRow.appendChild(resetSeenBtn);
   actRow.appendChild(resetBaseBtn);
   actRow.appendChild(testModeLabel);
-  
+
   actionsSection.appendChild(actRow);
   container.appendChild(actionsSection);
 
@@ -153,60 +156,119 @@ const SUPABASE_KEY = "sb_publishable_fHDlcZcYW3UAERRAKqp51w_g-Jt5XrY";
   historySection.appendChild(historyList);
   container.appendChild(historySection);
 
-
   // --- Logic ---
-function getUserId() {
-  let id = localStorage.getItem("flipradar_user_id");
 
-  if (!id) {
-    id = "user_" + Math.random().toString(36).substring(2, 10);
-    localStorage.setItem("flipradar_user_id", id);
-  }
+  function getUserId() {
+    let id = localStorage.getItem("flipradar_user_id");
 
-  return id;
-}
-
-async function checkProStatus(userId) {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/users?user_id=eq.${userId}`, {
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`
-      }
-    });
-
-    const data = await res.json();
-
-    if (data.length > 0 && data[0].is_pro === true) {
-      return true;
+    if (!id) {
+      id = "user_" + Math.random().toString(36).substring(2, 10);
+      localStorage.setItem("flipradar_user_id", id);
     }
 
-    return false;
-  } catch (err) {
-    console.error("Error checking pro status:", err);
-    return false;
+    return id;
   }
-}
 
-async function refreshProStatus() {
-  const userId = getUserId();
-  const pro = await checkProStatus(userId);
-  localStorage.setItem("flipradar_is_pro", pro ? "true" : "false");
-  console.log("Pro status:", pro);
-}
+  function getDeviceSecret() {
+    let secret = localStorage.getItem("flipradar_device_secret");
 
-function isProUser() {
-  return localStorage.getItem("flipradar_is_pro") === "true";
-}
-function promptUpgrade(message) {
-  const goToUpgrade = confirm(message + '\n\nClick OK to open the Pro upgrade page.');
-  if (goToUpgrade) {
-    window.open('https://aidansammel16-web.github.io/FlipRadar/', '_blank');
+    if (!secret) {
+      secret = crypto.randomUUID() + "-" + crypto.randomUUID();
+      localStorage.setItem("flipradar_device_secret", secret);
+    }
+
+    return secret;
   }
-}
+
+  async function registerUser() {
+    const userId = getUserId();
+    const deviceSecret = getDeviceSecret();
+
+    try {
+      const res = await fetch(REGISTER_USER_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          device_secret: deviceSecret
+        })
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        console.error("registerUser failed:", data || res.statusText);
+      }
+    } catch (e) {
+      console.error("registerUser failed", e);
+    }
+  }
+
+  async function checkProStatus(userId) {
+    const deviceSecret = getDeviceSecret();
+
+    try {
+      const res = await fetch(GET_PRO_STATUS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          device_secret: deviceSecret
+        })
+      });
+
+      const data = await res.json();
+      return !!data.is_pro;
+    } catch (e) {
+      console.error("checkProStatus failed", e);
+      return false;
+    }
+  }
+
+  async function refreshProStatus() {
+    const userId = getUserId();
+    const pro = await checkProStatus(userId);
+
+    localStorage.setItem("flipradar_is_pro", pro ? "true" : "false");
+    console.log("Pro status:", pro);
+
+    kwInput.disabled = !pro;
+    kwInput.placeholder = pro ? "vintage, etc." : "Pro only";
+
+    if (pro) {
+      upgradeBtn.textContent = "Pro Active";
+      upgradeBtn.disabled = true;
+      upgradeBtn.style.background = "#2563eb";
+      upgradeBtn.style.cursor = "default";
+      upgradeBtn.style.opacity = "0.85";
+    } else {
+      upgradeBtn.textContent = "Upgrade to Pro";
+      upgradeBtn.disabled = false;
+      upgradeBtn.style.background = "#2563eb";
+      upgradeBtn.style.cursor = "pointer";
+      upgradeBtn.style.opacity = "1";
+    }
+  }
+
+  function isProUser() {
+    return localStorage.getItem("flipradar_is_pro") === "true";
+  }
+
+  function promptUpgrade(message) {
+    const goToUpgrade = confirm(message + '\n\nClick OK to open the Pro upgrade page.');
+    if (goToUpgrade) {
+      const userId = getUserId();
+      window.open(`https://aidansammel16-web.github.io/FlipRadar/?user_id=${encodeURIComponent(userId)}`, '_blank');
+    }
+  }
+
   function renderSearches() {
     while (searchesList.firstChild) searchesList.removeChild(searchesList.firstChild);
-    
+
     if (searches.length === 0) {
       searchesList.appendChild(createEl('div', 'search-meta', 'No searches configured.'));
       return;
@@ -214,22 +276,22 @@ function promptUpgrade(message) {
 
     searches.forEach((s, idx) => {
       const item = createEl('div', 'search-item');
-      
+
       const info = createEl('div', 'search-info');
       const urlDiv = createEl('div', 'search-url', s.url);
       urlDiv.title = s.url;
       info.appendChild(urlDiv);
-      
+
       const metaText = [];
       if (s.maxPrice) metaText.push(`Max: $${s.maxPrice}`);
       if (s.keywords) metaText.push(`Kw: ${s.keywords}`);
       metaText.push(s.enabled ? 'Active' : 'Paused');
-      
+
       info.appendChild(createEl('div', 'search-meta', metaText.join(' • ')));
       item.appendChild(info);
 
       const controls = createEl('div', 'flex gap-s');
-      
+
       const toggleBtn = createEl('button', 'btn btn-sm', s.enabled ? 'Pause' : 'Resume');
       toggleBtn.addEventListener('click', async () => {
         s.enabled = !s.enabled;
@@ -251,8 +313,7 @@ function promptUpgrade(message) {
 
   function renderHistory() {
     while (historyList.firstChild) historyList.removeChild(historyList.firstChild);
-    
-    // Show newest first
+
     const visible = alertHistory.slice().reverse();
     visible.forEach(h => {
       const row = createEl('div', 'history-item');
@@ -274,10 +335,9 @@ function promptUpgrade(message) {
       settings = res.settings || { minScore: 2, checkIntervalMin: 5, testMode: false };
       alertHistory = res.alertHistory || [];
 
-      // Hydrate UI
       renderSearches();
       renderHistory();
-      
+
       minScoreInput.value = (settings.minScore != null ? settings.minScore : 2);
       intervalInput.value = (settings.checkIntervalMin != null ? settings.checkIntervalMin : 5);
       testModeInput.checked = !!settings.testMode;
@@ -292,68 +352,66 @@ function promptUpgrade(message) {
       });
     });
   }
-  
-function saveSettings() {
-  const requestedInterval = parseInt(intervalInput.value, 10) || 5;
 
-  if (!isProUser() && requestedInterval < 5) {
-  promptUpgrade('Free plan minimum check interval is 5 minutes. Upgrade to Pro for faster alerts.');
-  intervalInput.value = 5;
-  return;
-}
+  function saveSettings() {
+    const requestedInterval = parseInt(intervalInput.value, 10) || 5;
 
-  // IMPORTANT: merge with existing settings so we don't clobber fields
-  // set on the Options page (e.g., Telegram token/chatId).
-  chrome.storage.local.get(['settings'], (res) => {
-    const prev = res.settings || {};
-    const merged = {
-      ...prev,
-      minScore: parseInt(minScoreInput.value, 10) || 0,
-      checkIntervalMin: requestedInterval,
-      testMode: testModeInput.checked
-    };
-    chrome.storage.local.set({ settings: merged }, () => {
-      console.log('Settings saved');
+    if (!isProUser() && requestedInterval < 5) {
+      promptUpgrade('Free plan minimum check interval is 5 minutes. Upgrade to Pro for faster alerts.');
+      intervalInput.value = 5;
+      return;
+    }
+
+    chrome.storage.local.get(['settings'], (res) => {
+      const prev = res.settings || {};
+      const merged = {
+        ...prev,
+        minScore: parseInt(minScoreInput.value, 10) || 0,
+        checkIntervalMin: requestedInterval,
+        testMode: testModeInput.checked
+      };
+      chrome.storage.local.set({ settings: merged }, () => {
+        console.log('Settings saved');
+      });
     });
-  });
-}
-  // Event Listeners
-
-submitBtn.addEventListener('click', async () => {
-  const url = urlInput.value.trim();
-  if (!url || !url.startsWith('https://')) {
-    alert('Valid HTTPS URL required');
-    return;
   }
 
-if (!isProUser() && searches.length >= 1) {
-  promptUpgrade('Free plan allows 1 search only. Upgrade to Pro for unlimited searches.');
-  return;
-}
+  // Event Listeners
 
-if (!isProUser() && kwInput.value.trim()) {
-  promptUpgrade('Keyword filtering is a Pro feature. Upgrade to Pro to use keywords in your searches.');
-  return;
-}
-  searches.push({
-    url: url,
-    maxPrice: priceInput.value ? parseFloat(priceInput.value) : null,
-    keywords: kwInput.value.trim() || null,
-    enabled: enInput.checked
+  submitBtn.addEventListener('click', async () => {
+    const url = urlInput.value.trim();
+    if (!url || !url.startsWith('https://')) {
+      alert('Valid HTTPS URL required');
+      return;
+    }
+
+    if (!isProUser() && searches.length >= 1) {
+      promptUpgrade('Free plan allows 1 search only. Upgrade to Pro for unlimited searches.');
+      return;
+    }
+
+    if (!isProUser() && kwInput.value.trim()) {
+      promptUpgrade('Keyword filtering is a Pro feature. Upgrade to Pro to use keywords in your searches.');
+      return;
+    }
+
+    searches.push({
+      url: url,
+      maxPrice: priceInput.value ? parseFloat(priceInput.value) : null,
+      keywords: kwInput.value.trim() || null,
+      enabled: enInput.checked
+    });
+
+    urlInput.value = '';
+    priceInput.value = '';
+    kwInput.value = '';
+
+    await saveSearches();
   });
-  
-  // Clear form
-  urlInput.value = '';
-  priceInput.value = '';
-  kwInput.value = '';
-  
-  await saveSearches();
-});
 
   saveSettingsBtn.addEventListener('click', saveSettings);
-  
+
   testModeInput.addEventListener('change', () => {
-    // Auto-save on toggle? strict req says "Test Mode toggle", implicit save is better UX
     saveSettings();
   });
 
@@ -378,12 +436,11 @@ if (!isProUser() && kwInput.value.trim()) {
         alert('Tick error: ' + chrome.runtime.lastError.message);
         return;
       }
-      
+
       if (response && response.ok) {
         const count = response.newAlerts || 0;
-        
+
         if (count > 0) {
-          // Append placeholder alerts as requested
           const placeholders = [];
           for (let i = 0; i < count; i++) {
             placeholders.push({
@@ -392,20 +449,16 @@ if (!isProUser() && kwInput.value.trim()) {
               time: new Date().toISOString()
             });
           }
-          
-          // Re-fetch history to ensure we append to latest state if concurrent
+
           chrome.storage.local.get(['alertHistory'], (res) => {
             const current = res.alertHistory || [];
             const updated = current.concat(placeholders).slice(-50);
-            
+
             chrome.storage.local.set({ alertHistory: updated }, () => {
               alertHistory = updated;
               renderHistory();
-              // alert(`Tick done. ${count} new alerts generated.`);
             });
           });
-        } else {
-          // alert('Tick done. No new alerts.');
         }
       } else {
         alert('Tick failed or unknown response.');
@@ -416,85 +469,76 @@ if (!isProUser() && kwInput.value.trim()) {
   // Initial structure build
   createHeader();
 
-// --- Plan Info (Free vs Pro) ---
-var planInfo = createEl('div', 'section mt-m');
+  // --- Plan Info (Free vs Pro) ---
+  var planInfo = createEl('div', 'section mt-m');
 
-var planTitle = createEl('div', 'h2', 'Your Plan');
-planInfo.appendChild(planTitle);
+  var planTitle = createEl('div', 'h2', 'Your Plan');
+  planInfo.appendChild(planTitle);
 
-// FREE
-var freeLine = createEl('div', '', 'FREE');
-freeLine.style.fontSize = '12px';
-freeLine.style.fontWeight = '700';
-freeLine.style.color = '#666';
+  var freeLine = createEl('div', '', 'FREE');
+  freeLine.style.fontSize = '12px';
+  freeLine.style.fontWeight = '700';
+  freeLine.style.color = '#666';
 
-var freeDetails = createEl('div', '', '1 search • 5 min checks');
-freeDetails.style.fontSize = '13px';
-freeDetails.style.marginBottom = '10px';
-freeDetails.style.color = '#444';
+  var freeDetails = createEl('div', '', '1 search • 5 min checks');
+  freeDetails.style.fontSize = '13px';
+  freeDetails.style.marginBottom = '10px';
+  freeDetails.style.color = '#444';
 
-// PRO
-var proLine = createEl('div', '', 'PRO');
-proLine.style.fontSize = '12px';
-proLine.style.fontWeight = '700';
-proLine.style.color = '#2563eb';
+  var proLine = createEl('div', '', 'PRO');
+  proLine.style.fontSize = '12px';
+  proLine.style.fontWeight = '700';
+  proLine.style.color = '#2563eb';
 
-var proDetails = createEl('div', '', 'Unlimited searches • keywords • faster alerts');
-proDetails.style.fontSize = '13px';
-proDetails.style.color = '#2563eb';
+  var proDetails = createEl('div', '', 'Unlimited searches • keywords • faster alerts');
+  proDetails.style.fontSize = '13px';
+  proDetails.style.color = '#2563eb';
 
-// Append
-planInfo.appendChild(freeLine);
-planInfo.appendChild(freeDetails);
-planInfo.appendChild(proLine);
-planInfo.appendChild(proDetails);
+  planInfo.appendChild(freeLine);
+  planInfo.appendChild(freeDetails);
+  planInfo.appendChild(proLine);
+  planInfo.appendChild(proDetails);
 
-container.appendChild(planInfo);
+  container.appendChild(planInfo);
 
   // ── Options page link (auto-injected) ──
-var optionsLink = createEl('div', 'section mt-m');
+  var optionsLink = createEl('div', 'section mt-m');
 
-var optBtn = createEl('button', 'btn w-full', 'Open Full Settings');
-optBtn.addEventListener('click', function () {
-  if (chrome.runtime.openOptionsPage) {
-    chrome.runtime.openOptionsPage();
-  }
-});
+  var optBtn = createEl('button', 'btn w-full', 'Open Full Settings');
+  optBtn.addEventListener('click', function () {
+    if (chrome.runtime.openOptionsPage) {
+      chrome.runtime.openOptionsPage();
+    }
+  });
 
-var upgradeBtn = createEl('button', 'btn w-full', 'Upgrade to Pro');
-upgradeBtn.style.background = '#2563eb';
-upgradeBtn.style.color = '#ffffff';
-upgradeBtn.style.border = 'none';
-upgradeBtn.style.fontWeight = '600';
-upgradeBtn.style.cursor = 'pointer';
-upgradeBtn.style.padding = '10px';
-upgradeBtn.style.borderRadius = '6px';
-upgradeBtn.style.marginTop = '8px';
+  var upgradeBtn = createEl('button', 'btn w-full', 'Upgrade to Pro');
+  upgradeBtn.style.background = '#2563eb';
+  upgradeBtn.style.color = '#ffffff';
+  upgradeBtn.style.border = 'none';
+  upgradeBtn.style.fontWeight = '600';
+  upgradeBtn.style.cursor = 'pointer';
+  upgradeBtn.style.padding = '10px';
+  upgradeBtn.style.borderRadius = '6px';
+  upgradeBtn.style.marginTop = '8px';
 
-upgradeBtn.addEventListener('mouseover', function () {
-  this.style.background = '#1d4ed8';
-});
+  upgradeBtn.addEventListener('click', function () {
+    const userId = getUserId();
+    window.open(`https://aidansammel16-web.github.io/FlipRadar/?user_id=${encodeURIComponent(userId)}`, '_blank');
+  });
 
-upgradeBtn.addEventListener('mouseout', function () {
-  this.style.background = '#2563eb';
-});
+  var helpBtn = createEl('button', 'btn w-full', 'Need Help?');
+  helpBtn.style.marginTop = '8px';
+  helpBtn.addEventListener('click', function () {
+    window.open(`mailto:${SUPPORT_EMAIL}?subject=FlipRadar%20Support`, '_blank');
+  });
 
-upgradeBtn.addEventListener('click', function () {
-  const userId = getUserId();
-  window.open(`https://aidansammel16-web.github.io/FlipRadar/?user_id=${encodeURIComponent(userId)}`, '_blank');
-});
+  optionsLink.appendChild(optBtn);
+  optionsLink.appendChild(upgradeBtn);
+  optionsLink.appendChild(helpBtn);
+  container.appendChild(optionsLink);
 
-optionsLink.appendChild(optBtn);
-optionsLink.appendChild(upgradeBtn);
-container.appendChild(optionsLink);
-
-refreshProStatus();
-loadData();
+  await registerUser();
+  await refreshProStatus();
+  loadData();
+  setInterval(refreshProStatus, 10000);
 })();
-
-// Keep UI in sync if options/settings change elsewhere
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'local') return;
-  if (changes.settings) { try { loadSettings(); } catch (e) {} }
-  if (changes.searches) { try { loadSearches(); } catch (e) {} }
-});
