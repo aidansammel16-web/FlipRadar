@@ -36,7 +36,9 @@
           </p>
 
           <div class="button-row">
-            <a class="btn btn-primary" href="https://buy.stripe.com/test_6oUfZj9fV5yQccvfVpd7q00" target="_blank" rel="noopener noreferrer">Get FlipRadar Now</a>
+            <button id="goProBtn" class="btn btn-primary">
+              Get FlipRadar Now
+            </button>
             <a class="btn btn-secondary" href="#features">Learn More</a>
           </div>
         </div>
@@ -225,7 +227,7 @@
               <li>Telegram alerts</li>
               <li>Advanced monitoring</li>
             </ul>
-            <a class="btn btn-primary btn-block" href="https://buy.stripe.com/test_6oUfZj9fV5yQccvfVpd7q00" target="_blank" rel="noopener noreferrer">Go Pro</a>
+            <button id="goProBtnPricing" class="btn btn-primary btn-block">Go Pro</button>
           </div>
         </div>
 
@@ -243,12 +245,57 @@
           </p>
 
           <div class="button-row center-buttons">
-            <a class="btn btn-primary" href="https://buy.stripe.com/test_6oUfZj9fV5yQccvfVpd7q00" target="_blank" rel="noopener noreferrer">Install FlipRadar</a>
+            <button id="goProBtnCta" class="btn btn-primary">Install FlipRadar</button>
             <a class="btn btn-secondary" href="#pricing">View Pricing</a>
           </div>
         </div>
       </div>
     </section>
   </main>
+
+  <script>
+    const FUNCTION_URL = "https://dyznxulsbhkhougueusp.supabase.co/functions/v1/create-checkout-session";
+
+    function getUserIdFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("user_id");
+    }
+
+    async function startCheckout() {
+      const user_id = getUserIdFromUrl();
+
+      if (!user_id) {
+        alert("Missing user ID. Please open from extension.");
+        return;
+      }
+
+      try {
+        const res = await fetch(FUNCTION_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ user_id }),
+        });
+
+        const data = await res.json();
+
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          alert("Error starting checkout");
+          console.error(data);
+        }
+      } catch (err) {
+        alert("Checkout failed");
+        console.error(err);
+      }
+    }
+
+    document.getElementById("goProBtn").addEventListener("click", startCheckout);
+    document.getElementById("goProBtnPricing").addEventListener("click", startCheckout);
+    document.getElementById("goProBtnCta").addEventListener("click", startCheckout);
+  </script>
+
 </body>
 </html>
