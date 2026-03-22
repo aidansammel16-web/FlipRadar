@@ -1,3 +1,5 @@
+const SUPABASE_URL = "https://dyznxulsbhkhougueusp.supabase.co";
+const SUPABASE_KEY = "sb_publishable_fHDlcZcYW3UAERRAKqp51w_g-Jt5XrY";
 // popup.js - Strict CSP safe, class-based DOM only
 
 (function() {
@@ -153,9 +155,48 @@
 
 
   // --- Logic ---
+function getUserId() {
+  let id = localStorage.getItem("flipradar_user_id");
+
+  if (!id) {
+    id = "user_" + Math.random().toString(36).substring(2, 10);
+    localStorage.setItem("flipradar_user_id", id);
+  }
+
+  return id;
+}
+
+async function checkProStatus(userId) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/users?user_id=eq.${userId}`, {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`
+      }
+    });
+
+    const data = await res.json();
+
+    if (data.length > 0 && data[0].is_pro === true) {
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error("Error checking pro status:", err);
+    return false;
+  }
+}
+
+async function refreshProStatus() {
+  const userId = getUserId();
+  const pro = await checkProStatus(userId);
+  localStorage.setItem("flipradar_is_pro", pro ? "true" : "false");
+  console.log("Pro status:", pro);
+}
 
 function isProUser() {
- return false; // TEMP: change to true later to simulate Pro
+  return localStorage.getItem("flipradar_is_pro") === "true";
 }
 function promptUpgrade(message) {
   const goToUpgrade = confirm(message + '\n\nClick OK to open the Pro upgrade page.');
@@ -439,16 +480,17 @@ upgradeBtn.addEventListener('mouseout', function () {
 });
 
 upgradeBtn.addEventListener('click', function () {
-  window.open('https://aidansammel16-web.github.io/FlipRadar/', '_blank');
+  const userId = getUserId();
+  window.open(`https://aidansammel16-web.github.io/FlipRadar/?user_id=${encodeURIComponent(userId)}`, '_blank');
 });
 
 optionsLink.appendChild(optBtn);
 optionsLink.appendChild(upgradeBtn);
 container.appendChild(optionsLink);
 
+refreshProStatus();
 loadData();
 })();
-
 
 // Keep UI in sync if options/settings change elsewhere
 chrome.storage.onChanged.addListener((changes, area) => {
