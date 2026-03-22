@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Install FlipRadar</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .guide-page {
+      padding: 48px 0 72px;
+      background: #f8fafc;
+      min-height: 100vh;
+    }
+
+    .guide-shell {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    .guide-hero {
+      background: white;
+      border-radius: 18px;
+      padding: 32px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      margin-bottom: 28px;
+    }
+
+    .guide-hero h1 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 42px;
+      line-height: 1.1;
+    }
+
+    .guide-hero p {
+      margin: 0;
+      font-size: 18px;
+      color: #475569;
+    }
+
+    .guide-card {
+      background: white;
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      margin-bottom: 22px;
+    }
+
+    .guide-card h2 {
+      margin-top: 0;
+      margin-bottom: 14px;
+      font-size: 28px;
+    }
+
+    .guide-card h3 {
+      margin-top: 24px;
+      margin-bottom: 10px;
+      font-size: 20px;
+    }
+
+    .guide-card p,
+    .guide-card li {
+      color: #334155;
+      line-height: 1.7;
+      font-size: 16px;
+    }
+
+    .guide-card ol,
+    .guide-card ul {
+      padding-left: 22px;
+      margin: 12px 0;
+    }
+
+    .code-box {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 14px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+
+    .note-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e3a8a;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-top: 14px;
+    }
+
+    .warning-box {
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      color: #9a3412;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-top: 14px;
+    }
+
+    .button-row-guide {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .guide-back {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #2563eb;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .guide-back:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 700px) {
+      .guide-hero h1 {
+        font-size: 32px;
+      }
+
+      .guide-card {
+        padding: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav-row">
+      <div class="brand">FlipRadar</div>
+
+      <nav class="nav">
+        <a href="index.html#how-it-works">How It Works</a>
+        <a href="index.html#features">Features</a>
+        <a href="index.html#pricing">Pricing</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a class="btn btn-secondary" href="index.html">Home</a>
+        <a class="btn btn-primary" href="index.html#pricing">Go Pro</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="guide-page">
+    <div class="guide-shell">
+      <a class="guide-back" href="index.html">← Back to FlipRadar</a>
+
+      <section class="guide-hero">
+        <h1>Install and Use FlipRadar</h1>
+        <p>
+          This page shows you how to install FlipRadar, set up your first search,
+          and optionally connect Telegram alerts.
+        </p>
+
+        <div class="button-row-guide">
+          <a class="btn btn-primary" href="CHROME_STORE_URL_HERE" target="_blank" rel="noopener noreferrer">
+            Install from Chrome Web Store
+          </a>
+          <a class="btn btn-secondary" href="index.html#pricing">View Pro Features</a>
+        </div>
+
+        <div class="warning-box">
+          Replace <strong>CHROME_STORE_URL_HERE</strong> with your real Chrome Web Store listing URL once the extension is published.
+        </div>
+      </section>
+
+      <section class="guide-card">
+        <h2>1. Install FlipRadar</h2>
+
+        <ol>
+          <li>Open the FlipRadar listing in the Chrome Web Store.</li>
+          <li>Click <strong>Add to Chrome</strong>.</li>
+          <li>Confirm the installation when Chrome asks.</li>
+          <li>Pin FlipRadar to your browser toolbar so it is easy to access.</li>
+        </ol>
+
+        <div class="note-box">
+          After installing, click the FlipRadar icon in your browser toolbar to open the popup.
+        </div>
+      </section>
+
+      <section class="guide-card">
+        <h2>2. Add Your First Marketplace Search</h2>
+
+        <ol>
+          <li>Go to Facebook Marketplace.</li>
+          <li>Search for the kind of product you want to monitor.</li>
+          <li>Apply any Marketplace filters you want.</li>
+          <li>Copy the full URL from your browser address bar.</li>
+          <li>Open FlipRadar.</li>
+          <li>Paste the Marketplace URL into the search field.</li>
+          <li>Optionally set a max price.</li>
+          <li>If you are on Pro, you can also enter keywords.</li>
+          <li>Click <strong>Save Search</strong>.</li>
+        </ol>
+
+        <div class="note-box">
+          Free users can monitor 1 search with 5 minute checks. Pro users get unlimited searches, keywords, and faster alerts.
+        </div>
+      </section>
+
+      <section class="guide-card">
+        <h2>3. Configure Your Settings</h2>
+
+        <h3>Minimum score</h3>
+        <p>
+          This helps FlipRadar decide which listings are most relevant.
+        </p>
+
+        <h3>Check interval</h3>
+        <p>
+          This determines how often FlipRadar refreshes your saved searches.
+        </p>
+
+        <ul>
+          <li><strong>Free:</strong> 5 minute minimum</li>
+          <li><strong>Pro:</strong> faster checks</li>
+        </ul>
+      </section>
+
+      <section class="guide-card">
+        <h2>4. Set Up Telegram Alerts (Optional)</h2>
+
+        <p>
+          FlipRadar can send alerts through your own Telegram bot. You do not need Telegram to use FlipRadar, but it is useful if you want mobile notifications.
+        </p>
+
+        <h3>Step A — create a Telegram bot</h3>
+        <ol>
+          <li>Open Telegram.</li>
+          <li>Search for <strong>BotFather</strong>.</li>
+          <li>Start a chat with BotFather.</li>
+          <li>Send this command:</li>
+        </ol>
+
+        <div class="code-box">/newbot</div>
+
+        <ol start="5">
+          <li>Follow the prompts to choose a bot name and username.</li>
+          <li>BotFather will give you a bot token.</li>
+          <li>Copy and save that token somewhere safe.</li>
+        </ol>
+
+        <h3>Step B — get your chat ID</h3>
+        <ol>
+          <li>Send a message to your new bot in Telegram.</li>
+          <li>Open this URL in your browser, replacing <strong>YOUR_BOT_TOKEN</strong> with your real token:</li>
+        </ol>
+
+        <div class="code-box">https://api.telegram.org/botYOUR_BOT_TOKEN/getUpdates</div>
+
+        <ol start="3">
+          <li>Find the number listed under <strong>chat</strong> → <strong>id</strong>.</li>
+          <li>Copy that number. That is your Telegram chat ID.</li>
+        </ol>
+
+        <h3>Step C — add both values to FlipRadar</h3>
+        <ol>
+          <li>Open FlipRadar.</li>
+          <li>Open full settings.</li>
+          <li>Paste in your Telegram bot token.</li>
+          <li>Paste in your Telegram chat ID.</li>
+          <li>Save your settings.</li>
+        </ol>
+
+        <div class="warning-box">
+          Keep your Telegram bot token private. Anyone with that token can interact with your bot.
+        </div>
+      </section>
+
+      <section class="guide-card">
+        <h2>5. How to Use FlipRadar Effectively</h2>
+
+        <ul>
+          <li>Use very specific Marketplace searches for the best results.</li>
+          <li>Set a max price so you only see real opportunities.</li>
+          <li>Use keywords on Pro to narrow down listings even further.</li>
+          <li>Keep FlipRadar pinned so you can quickly update searches.</li>
+          <li>Check alerts quickly because good Marketplace deals disappear fast.</li>
+        </ul>
+      </section>
+
+      <section class="guide-card">
+        <h2>6. Upgrade to Pro</h2>
+
+        <p>
+          Upgrade if you want:
+        </p>
+
+        <ul>
+          <li>Unlimited searches</li>
+          <li>Keyword matching</li>
+          <li>Faster alerts</li>
+        </ul>
+
+        <div class="button-row-guide">
+          <a class="btn btn-primary" href="index.html#pricing">Go Pro</a>
+          <a class="btn btn-secondary" href="index.html">Back to Home</a>
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
