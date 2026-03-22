@@ -36,9 +36,7 @@
           </p>
 
           <div class="button-row">
-            <button id="goProBtn" class="btn btn-primary">
-              Get FlipRadar Now
-            </button>
+            <button id="goProBtnHero" class="btn btn-primary" type="button">Get FlipRadar Now</button>
             <a class="btn btn-secondary" href="#features">Learn More</a>
           </div>
         </div>
@@ -104,7 +102,7 @@
           <div class="info-card">
             <div class="number-badge">3</div>
             <h3>Get Notified</h3>
-            <p>Receive alerts for new listings and price drops directly in your browser or Telegram.</p>
+            <p>Receive alerts when relevant Marketplace listings appear.</p>
           </div>
         </div>
       </div>
@@ -148,7 +146,7 @@
           <div class="info-card">
             <div class="icon">📲</div>
             <h3>Telegram Alerts</h3>
-            <p>Get mobile alerts through your own Telegram bot setup.</p>
+            <p>Optional alerts through your own Telegram bot setup.</p>
           </div>
 
           <div class="info-card">
@@ -209,9 +207,8 @@
             <div class="plan-name">Free</div>
             <div class="price">$0<span>/month</span></div>
             <ul>
-              <li>Limited searches</li>
-              <li>Slower scan interval</li>
-              <li>Basic alerts</li>
+              <li>1 search</li>
+              <li>5 min checks</li>
               <li>Good for trying the product</li>
             </ul>
             <a class="btn btn-secondary btn-block" href="#cta">Start Free</a>
@@ -220,14 +217,13 @@
           <div class="pricing-card featured">
             <div class="featured-badge">Recommended</div>
             <div class="plan-name">Pro</div>
-            <div class="price">$12<span>/month</span></div>
+            <div class="price">$9<span>/month</span></div>
             <ul>
-              <li>More searches</li>
-              <li>Faster scan intervals</li>
-              <li>Telegram alerts</li>
-              <li>Advanced monitoring</li>
+              <li>Unlimited searches</li>
+              <li>Keywords</li>
+              <li>Faster alerts</li>
             </ul>
-            <button id="goProBtnPricing" class="btn btn-primary btn-block">Go Pro</button>
+            <button id="goProBtnPricing" class="btn btn-primary btn-block" type="button">Go Pro</button>
           </div>
         </div>
 
@@ -245,7 +241,7 @@
           </p>
 
           <div class="button-row center-buttons">
-            <button id="goProBtnCta" class="btn btn-primary">Install FlipRadar</button>
+            <button id="goProBtnCta" class="btn btn-primary" type="button">Install FlipRadar</button>
             <a class="btn btn-secondary" href="#pricing">View Pricing</a>
           </div>
         </div>
@@ -259,6 +255,43 @@
     function getUserIdFromUrl() {
       const params = new URLSearchParams(window.location.search);
       return params.get("user_id");
+    }
+
+    function showCheckoutStatus() {
+      const params = new URLSearchParams(window.location.search);
+      const main = document.querySelector("main");
+
+      if (!main) return;
+
+      if (params.get("success") === "true") {
+        const banner = document.createElement("div");
+        banner.textContent = "✅ You are now Pro. Reopen the extension and your Pro features should unlock within a few seconds.";
+        banner.style.maxWidth = "1100px";
+        banner.style.margin = "24px auto 0";
+        banner.style.padding = "14px 18px";
+        banner.style.borderRadius = "10px";
+        banner.style.background = "#dcfce7";
+        banner.style.color = "#166534";
+        banner.style.fontWeight = "600";
+        banner.style.border = "1px solid #86efac";
+        main.prepend(banner);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      if (params.get("canceled") === "true") {
+        const banner = document.createElement("div");
+        banner.textContent = "Payment was canceled. You can try again anytime.";
+        banner.style.maxWidth = "1100px";
+        banner.style.margin = "24px auto 0";
+        banner.style.padding = "14px 18px";
+        banner.style.borderRadius = "10px";
+        banner.style.background = "#fef3c7";
+        banner.style.color = "#92400e";
+        banner.style.fontWeight = "600";
+        banner.style.border = "1px solid #fcd34d";
+        main.prepend(banner);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     }
 
     async function startCheckout() {
@@ -283,7 +316,7 @@
         if (data.url) {
           window.location.href = data.url;
         } else {
-          alert("Error starting checkout");
+          alert("Checkout failed");
           console.error(data);
         }
       } catch (err) {
@@ -292,10 +325,11 @@
       }
     }
 
-    document.getElementById("goProBtn").addEventListener("click", startCheckout);
+    showCheckoutStatus();
+
+    document.getElementById("goProBtnHero").addEventListener("click", startCheckout);
     document.getElementById("goProBtnPricing").addEventListener("click", startCheckout);
     document.getElementById("goProBtnCta").addEventListener("click", startCheckout);
   </script>
-
 </body>
 </html>
