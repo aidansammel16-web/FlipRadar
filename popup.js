@@ -154,6 +154,15 @@
 
   // --- Logic ---
 
+function isProUser() {
+ return false; // TEMP: change to true later to simulate Pro
+}
+function promptUpgrade(message) {
+  const goToUpgrade = confirm(message + '\n\nClick OK to open the Pro upgrade page.');
+  if (goToUpgrade) {
+    window.open('https://aidansammel16-web.github.io/FlipRadar/', '_blank');
+  }
+}
   function renderSearches() {
     while (searchesList.firstChild) searchesList.removeChild(searchesList.firstChild);
     
@@ -243,46 +252,62 @@
     });
   }
   
-  function saveSettings() {
-    // IMPORTANT: merge with existing settings so we don't clobber fields
-    // set on the Options page (e.g., Telegram token/chatId).
-    chrome.storage.local.get(['settings'], (res) => {
-      const prev = res.settings || {};
-      const merged = {
-        ...prev,
-        minScore: parseInt(minScoreInput.value, 10) || 0,
-        checkIntervalMin: parseInt(intervalInput.value, 10) || 5,
-        testMode: testModeInput.checked
-      };
-      chrome.storage.local.set({ settings: merged }, () => {
-        console.log('Settings saved');
-      });
-    });
-  }
+function saveSettings() {
+  const requestedInterval = parseInt(intervalInput.value, 10) || 5;
 
+  if (!isProUser() && requestedInterval < 5) {
+  promptUpgrade('Free plan minimum check interval is 5 minutes. Upgrade to Pro for faster alerts.');
+  intervalInput.value = 5;
+  return;
+}
+
+  // IMPORTANT: merge with existing settings so we don't clobber fields
+  // set on the Options page (e.g., Telegram token/chatId).
+  chrome.storage.local.get(['settings'], (res) => {
+    const prev = res.settings || {};
+    const merged = {
+      ...prev,
+      minScore: parseInt(minScoreInput.value, 10) || 0,
+      checkIntervalMin: requestedInterval,
+      testMode: testModeInput.checked
+    };
+    chrome.storage.local.set({ settings: merged }, () => {
+      console.log('Settings saved');
+    });
+  });
+}
   // Event Listeners
 
-  submitBtn.addEventListener('click', async () => {
-    const url = urlInput.value.trim();
-    if (!url || !url.startsWith('https://')) {
-      alert('Valid HTTPS URL required');
-      return;
-    }
+submitBtn.addEventListener('click', async () => {
+  const url = urlInput.value.trim();
+  if (!url || !url.startsWith('https://')) {
+    alert('Valid HTTPS URL required');
+    return;
+  }
 
-    searches.push({
-      url: url,
-      maxPrice: priceInput.value ? parseFloat(priceInput.value) : null,
-      keywords: kwInput.value.trim() || null,
-      enabled: enInput.checked
-    });
-    
-    // Clear form
-    urlInput.value = '';
-    priceInput.value = '';
-    kwInput.value = '';
-    
-    await saveSearches();
+if (!isProUser() && searches.length >= 1) {
+  promptUpgrade('Free plan allows 1 search only. Upgrade to Pro for unlimited searches.');
+  return;
+}
+
+if (!isProUser() && kwInput.value.trim()) {
+  promptUpgrade('Keyword filtering is a Pro feature. Upgrade to Pro to use keywords in your searches.');
+  return;
+}
+  searches.push({
+    url: url,
+    maxPrice: priceInput.value ? parseFloat(priceInput.value) : null,
+    keywords: kwInput.value.trim() || null,
+    enabled: enInput.checked
   });
+  
+  // Clear form
+  urlInput.value = '';
+  priceInput.value = '';
+  kwInput.value = '';
+  
+  await saveSearches();
+});
 
   saveSettingsBtn.addEventListener('click', saveSettings);
   
@@ -349,6 +374,41 @@
 
   // Initial structure build
   createHeader();
+
+// --- Plan Info (Free vs Pro) ---
+var planInfo = createEl('div', 'section mt-m');
+
+var planTitle = createEl('div', 'h2', 'Your Plan');
+planInfo.appendChild(planTitle);
+
+// FREE
+var freeLine = createEl('div', '', 'FREE');
+freeLine.style.fontSize = '12px';
+freeLine.style.fontWeight = '700';
+freeLine.style.color = '#666';
+
+var freeDetails = createEl('div', '', '1 search • 5 min checks');
+freeDetails.style.fontSize = '13px';
+freeDetails.style.marginBottom = '10px';
+freeDetails.style.color = '#444';
+
+// PRO
+var proLine = createEl('div', '', 'PRO');
+proLine.style.fontSize = '12px';
+proLine.style.fontWeight = '700';
+proLine.style.color = '#2563eb';
+
+var proDetails = createEl('div', '', 'Unlimited searches • keywords • faster alerts');
+proDetails.style.fontSize = '13px';
+proDetails.style.color = '#2563eb';
+
+// Append
+planInfo.appendChild(freeLine);
+planInfo.appendChild(freeDetails);
+planInfo.appendChild(proLine);
+planInfo.appendChild(proDetails);
+
+container.appendChild(planInfo);
 
   // ── Options page link (auto-injected) ──
 var optionsLink = createEl('div', 'section mt-m');
