@@ -351,17 +351,42 @@
   createHeader();
 
   // ── Options page link (auto-injected) ──
-  var optionsLink = createEl('div', 'section mt-m');
-  var optBtn = createEl('button', 'btn w-full', 'Open Full Settings');
-  optBtn.addEventListener('click', function () {
-    if (chrome.runtime.openOptionsPage) {
-      chrome.runtime.openOptionsPage();
-    }
-  });
-  optionsLink.appendChild(optBtn);
-  container.appendChild(optionsLink);
-  loadData();
+var optionsLink = createEl('div', 'section mt-m');
 
+var optBtn = createEl('button', 'btn w-full', 'Open Full Settings');
+optBtn.addEventListener('click', function () {
+  if (chrome.runtime.openOptionsPage) {
+    chrome.runtime.openOptionsPage();
+  }
+});
+
+var upgradeBtn = createEl('button', 'btn w-full', 'Upgrade to Pro');
+upgradeBtn.style.background = '#2563eb';
+upgradeBtn.style.color = '#ffffff';
+upgradeBtn.style.border = 'none';
+upgradeBtn.style.fontWeight = '600';
+upgradeBtn.style.cursor = 'pointer';
+upgradeBtn.style.padding = '10px';
+upgradeBtn.style.borderRadius = '6px';
+upgradeBtn.style.marginTop = '8px';
+
+upgradeBtn.addEventListener('mouseover', function () {
+  this.style.background = '#1d4ed8';
+});
+
+upgradeBtn.addEventListener('mouseout', function () {
+  this.style.background = '#2563eb';
+});
+
+upgradeBtn.addEventListener('click', function () {
+  window.open('https://aidansammel16-web.github.io/FlipRadar/', '_blank');
+});
+
+optionsLink.appendChild(optBtn);
+optionsLink.appendChild(upgradeBtn);
+container.appendChild(optionsLink);
+
+loadData();
 })();
 
 
